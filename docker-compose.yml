@@ -558,18 +558,18 @@ services:
     profiles: ["ml", "development", "all"]
 
   opencv:
-  #   image: jjanzic/docker-python3-opencv:latest
-  #   container_name: opencv
-  #   <<: *restart-policy
-  #   environment:
-  #     <<: *common-variables
-  #   volumes:
-  #     - ${CONFIG_PATH:-./config}/opencv:/app
-  #   ports:
-  #     - "${OPENCV_PORT:-7501}:5000"
-  #   networks:
-  #     - internal
-  #   profiles: ["cv", "development", "all"]
+    image: jjanzic/docker-python3-opencv:latest
+    container_name: opencv
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/opencv:/app
+    ports:
+      - "${OPENCV_PORT:-7501}:5000"
+    networks:
+      - internal
+    profiles: ["cv", "development", "all"]
 
   # ============================================================================
   # PRODUCTIVITY & TOOLS
