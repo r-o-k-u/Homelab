@@ -1,0 +1,106 @@
+[
+  {
+    "title": "Jellyfin",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:8096",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"password\":null}",
+    "appid": "3e0a7f109bd760b9474c78cb652e8c3e82669226",
+    "appdescription": "Jellyfin is the Free Software Media System that puts you in control of managing and streaming your media. There are no strings attached, no premium licenses or features, and no hidden agendas."
+  },
+  {
+    "title": "Ombi",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:3579",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "appid": "57b25ceb94bd4c9ba9038ce17656f5ede9007e4c",
+    "appdescription": "Ombi is a self-hosted web application that automatically gives your shared Plex or Emby users the ability to request content by themselves! Ombi can be linked to multiple TV Show and Movie DVR tools to create a seamless end-to-end experience for your users."
+  },
+  {
+    "title": "Searx Metasearch Engine",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:8082",
+    "description": null,
+    "appid": "d3f896182b5c10b07918e295fce8c5aef054d266",
+    "appdescription": "A privacy-respecting, hackable metasearch engine."
+  },
+  {
+    "title": "Uptime Kuma",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:3001",
+    "description": "{\"enabled\":\"0\",\"dataonly\":\"1\",\"override_url\":null,\"apikey\":null,\"ignore_tls\":\"0\"}",
+    "appid": "366c6646eedab83cc4b349f198424d2291cbfa76",
+    "appdescription": "It is a self-hosted monitoring tool like \"Uptime Robot\"."
+  },
+  {
+    "title": "WireGuard",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:51821",
+    "description": null,
+    "appid": "afef2217e82ee20638490bb102605f6e09789093",
+    "appdescription": "WireGuard® is an extremely simple yet fast and modern VPN that utilizes state-of-the-art cryptography. It aims to be faster, simpler, leaner, and more useful than IPsec, while avoiding the massive headache. It intends to be considerably more performant than OpenVPN. WireGuard is designed as a general purpose VPN for running on embedded interfaces and super computers alike, fit for many different circumstances. Initially released for the Linux kernel, it is now cross-platform (Windows, macOS, BSD, iOS, Android) and widely deployable. It is currently under heavy development, but already it might be regarded as the most secure, easiest to use, and simplest VPN solution in the industry."
+  },
+  {
+    "title": "Pi-hole",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:8084",
+    "description": "{\"enabled\":\"0\",\"dataonly\":\"1\",\"override_url\":null,\"apikey\":null,\"version\":\"5\",\"ignore_tls\":\"0\"}",
+    "appid": "b89920409bdce40e08ba1023480b0546061cd577",
+    "appdescription": "Pi-hole is a Linux network-level advertisement and internet tracker blocking application which acts as a DNS sinkhole, intended for use on a private network."
+  },
+  {
+    "title": "Syncthing",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:22000",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "appid": "7775c3bbf580fbaf57818e68ce7b1b48b8f93b95",
+    "appdescription": "Syncthing is a free, open-source peer-to-peer file synchronization application. It can sync files between devices on a local network, or between remote devices over the Internet."
+  },
+  {
+    "title": "qBittorrent",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:8083",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"username\":null,\"password\":null}",
+    "appid": "3ebd4dd8afe6308e392ccf09e3516eee99a1e8df",
+    "appdescription": "The qBittorrent project aims to provide an open-source software alternative to µTorrent."
+  },
+  {
+    "title": "Radarr",
+    "colour": "#fafbfc",
+    "url": "http://0.0.0.0:7878",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "appid": "8a5cd39a1a5dff323d63bbe45fffe0c9c03bd2e7",
+    "appdescription": "Radarr is an independent fork of Sonarr reworked for automatically downloading movies via Usenet and BitTorrent.\r\n\r\nThe project was inspired by other Usenet/BitTorrent movie downloaders such as CouchPotato."
+  },
+  {
+    "title": "Prowlarr",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:9696",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "appid": "de6ff49c94538e6e13a77f75991141a4fe9af8bf",
+    "appdescription": "Prowlarr is a indexer manager/proxy built on the popular arr .net/reactjs base stack to integrate with your various PVR apps. Prowlarr supports both Torrent Trackers and Usenet Indexers. It integrates seamlessly with Sonarr, Radarr, Lidarr, and Readarr offering complete management of your indexers with no per app Indexer setup required (we do it all)."
+  },
+  {
+    "title": "Sonarr",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:8989",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "appid": "6e2a525ceb737f9ed8badcef5eb20d1502e39656",
+    "appdescription": "Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them. It can also be configured to automatically upgrade the quality of files already downloaded when a better quality format becomes available."
+  },
+  {
+    "title": "Navidrome",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:4533",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"username\":null,\"password\":null}",
+    "appid": "31e028553b33bf830e42d88a888ee1093e3dd591",
+    "appdescription": "Navidrome is a self-hosted, open source music server and streamer. It gives you freedom to listen to your music collection from any browser or mobile device."
+  },
+  {
+    "title": "Lidarr",
+    "colour": "#161b1f",
+    "url": "http://0.0.0.0:8686",
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "appid": "c015fff30a3dc43f5987079c0142437e3e757fd0",
+    "appdescription": "Lidarr is a music collection manager for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new tracks from your favorite artists and will grab, sort and rename them."
+  }
+]

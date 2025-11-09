@@ -1,0 +1,218 @@
+[
+  {
+    "appid": "3e0a7f109bd760b9474c78cb652e8c3e82669226",
+    "appdescription": "Jellyfin is the Free Software Media System that puts you in control of managing and streaming your media. There are no strings attached, no premium licenses or features, and no hidden agendas.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"password\":null}",
+    "title": "Jellyfin",
+    "url": "http://media.lab"
+  },
+  {
+    "appid": "57b25ceb94bd4c9ba9038ce17656f5ede9007e4c",
+    "appdescription": "Ombi is a self-hosted web application that automatically gives your shared Plex or Emby users the ability to request content by themselves! Ombi can be linked to multiple TV Show and Movie DVR tools to create a seamless end-to-end experience for your users.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "title": "Ombi",
+    "url": "http://requests.lab"
+  },
+  {
+    "appid": "d3f896182b5c10b07918e295fce8c5aef054d266",
+    "appdescription": "A privacy-respecting, hackable metasearch engine.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "SearXNG",
+    "url": "http://search.lab"
+  },
+  {
+    "appid": "366c6646eedab83cc4b349f198424d2291cbfa76",
+    "appdescription": "It is a self-hosted monitoring tool like \"Uptime Robot\".",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"dataonly\":\"1\",\"override_url\":null,\"apikey\":null,\"ignore_tls\":\"0\"}",
+    "title": "Uptime Kuma",
+    "url": "http://status.lab"
+  },
+  {
+    "appid": "afef2217e82ee20638490bb102605f6e09789093",
+    "appdescription": "WireGuard® is an extremely simple yet fast and modern VPN that utilizes state-of-the-art cryptography. It aims to be faster, simpler, leaner, and more useful than IPsec, while avoiding the massive headache. It intends to be considerably more performant than OpenVPN.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "WireGuard",
+    "url": "http://vpn.lab"
+  },
+  {
+    "appid": "b89920409bdce40e08ba1023480b0546061cd577",
+    "appdescription": "Pi-hole is a Linux network-level advertisement and internet tracker blocking application which acts as a DNS sinkhole, intended for use on a private network.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"dataonly\":\"1\",\"override_url\":null,\"apikey\":null,\"version\":\"5\",\"ignore_tls\":\"0\"}",
+    "title": "Pi-hole",
+    "url": "http://pihole.lab"
+  },
+  {
+    "appid": "7775c3bbf580fbaf57818e68ce7b1b48b8f93b95",
+    "appdescription": "Syncthing is a free, open-source peer-to-peer file synchronization application. It can sync files between devices on a local network, or between remote devices over the Internet.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "title": "Syncthing",
+    "url": "http://sync.lab"
+  },
+  {
+    "appid": "3ebd4dd8afe6308e392ccf09e3516eee99a1e8df",
+    "appdescription": "The qBittorrent project aims to provide an open-source software alternative to µTorrent.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"username\":null,\"password\":null}",
+    "title": "qBittorrent",
+    "url": "http://torrent.lab"
+  },
+  {
+    "appid": "8a5cd39a1a5dff323d63bbe45fffe0c9c03bd2e7",
+    "appdescription": "Radarr is an independent fork of Sonarr reworked for automatically downloading movies via Usenet and BitTorrent.",
+    "colour": "#fafbfc",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "title": "Radarr",
+    "url": "http://radarr.lab"
+  },
+  {
+    "appid": "de6ff49c94538e6e13a77f75991141a4fe9af8bf",
+    "appdescription": "Prowlarr is a indexer manager/proxy built on the popular arr .net/reactjs base stack to integrate with your various PVR apps. Prowlarr supports both Torrent Trackers and Usenet Indexers.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "title": "Prowlarr",
+    "url": "http://prowlarr.lab"
+  },
+  {
+    "appid": "6e2a525ceb737f9ed8badcef5eb20d1502e39656",
+    "appdescription": "Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "title": "Sonarr",
+    "url": "http://sonarr.lab"
+  },
+  {
+    "appid": "31e028553b33bf830e42d88a888ee1093e3dd591",
+    "appdescription": "Navidrome is a self-hosted, open source music server and streamer. It gives you freedom to listen to your music collection from any browser or mobile device.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"username\":null,\"password\":null}",
+    "title": "Navidrome",
+    "url": "http://music.lab"
+  },
+  {
+    "appid": "c015fff30a3dc43f5987079c0142437e3e757fd0",
+    "appdescription": "Lidarr is a music collection manager for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new tracks from your favorite artists and will grab, sort and rename them.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": "{\"enabled\":\"0\",\"override_url\":null,\"apikey\":null}",
+    "title": "Lidarr",
+    "url": "http://lidarr.lab"
+  },
+  {
+    "appid": "homeassistant",
+    "appdescription": "Open source home automation that puts local control and privacy first.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "Home Assistant",
+    "url": "http://home.lab"
+  },
+  {
+    "appid": "nodered",
+    "appdescription": "Low-code programming for event-driven applications",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "Node-RED",
+    "url": "http://flows.lab"
+  },
+  {
+    "appid": "esphome",
+    "appdescription": "ESPHome is a system to control your ESP8266/ESP32 by simple yet powerful configuration files and control them remotely through Home Automation systems.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "ESPHome",
+    "url": "http://esphome.lab"
+  },
+  {
+    "appid": "mqtt-explorer",
+    "appdescription": "MQTT Explorer is a comprehensive MQTT client that provides a structured overview of your MQTT topics and payloads.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "MQTT Explorer",
+    "url": "http://mqtt.lab"
+  },
+  {
+    "appid": "n8n",
+    "appdescription": "Workflow automation platform with a fair-code license that can be self-hosted.",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "n8n",
+    "url": "http://n8n.lab"
+  },
+  {
+    "appid": "karakeep",
+    "appdescription": "Bookmark manager with advanced organization and search capabilities",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "KaraKeep",
+    "url": "http://bookmarks.lab"
+  },
+  {
+    "appid": "filebrowser",
+    "appdescription": "File browser and manager that provides a web interface for file operations",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "FileBrowser",
+    "url": "http://files.lab"
+  },
+  {
+    "appid": "traefik",
+    "appdescription": "Modern reverse proxy and load balancer that makes deploying microservices easy",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "Traefik",
+    "url": "http://traefik.lab"
+  },
+  {
+    "appid": "influxdb",
+    "appdescription": "Time series database designed for high-write-volume use cases",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "InfluxDB",
+    "url": "http://influxdb.lab"
+  },
+  {
+    "appid": "mlflow",
+    "appdescription": "Platform to manage the ML lifecycle, including experimentation, reproducibility and deployment",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "MLflow",
+    "url": "http://ml.lab"
+  },
+  {
+    "appid": "rosbridge",
+    "appdescription": "ROS Bridge for web-based robotics applications",
+    "colour": "#161b1f",
+    "defaultload": false,
+    "description": null,
+    "title": "ROSBridge",
+    "url": "http://ros.lab"
+  }
+]

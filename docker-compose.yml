@@ -1,0 +1,1199 @@
+# ==============================================================================
+# HOMELAB DOCKER COMPOSE v3.0 - Complete Stack
+# Supports: All services, Profile-based, Individual service deployment
+# ==============================================================================
+
+# Common environment variables template
+x-common-variables: &common-variables
+  TZ: ${TZ:-Africa/Nairobi}
+  PUID: ${PUID:-1000}
+  PGID: ${PGID:-1000}
+
+# Common restart policy
+x-restart-policy: &restart-policy
+  restart: unless-stopped
+
+# Common healthcheck settings
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+# Network definitions
+networks:
+  traefik:
+    external: true
+
+  internal:
+    name: ${DOCKER_NETWORK:-homelab_internal}
+    driver: bridge
+
+
+# ==============================================================================
+# SERVICES
+# ==============================================================================
+services:
+
+  # ============================================================================
+  # CORE INFRASTRUCTURE
+  # ============================================================================
+  
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    <<: *restart-policy
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.myresolver.acme.tlschallenge=true
+      - --certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL:-contact@example.com}
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+      - --log.level=${LOG_LEVEL:-INFO}
+      - --accesslog=true
+      - --metrics.prometheus=true
+    environment:
+      <<: *common-variables
+    ports:
+      - "80:80"
+      - "443:443"
+      - "${TRAEFIK_DASHBOARD_PORT:-7080}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${CONFIG_PATH:-./config}/traefik/letsencrypt:/letsencrypt
+      - ${CONFIG_PATH:-./config}/traefik/dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - traefik
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik-secure.entrypoints=websecure"
+      - "traefik.http.routers.traefik-secure.rule=Host(`traefik.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.traefik-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
+    profiles: ["core", "all"]
+
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/heimdall:/config
+    ports:
+      - "${HEIMDALL_PORT:-7081}:80"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.heimdall.entrypoints=web"
+      - "traefik.http.routers.heimdall.rule=Host(`dashboard.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.heimdall.loadbalancer.server.port=80"
+      - "traefik.http.routers.heimdall-secure.entrypoints=websecure"
+      - "traefik.http.routers.heimdall-secure.rule=Host(`dashboard.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.heimdall-secure.tls.certresolver=myresolver"
+    profiles: ["core", "all"]
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-changeme123_searxng}
+    volumes:
+      - ${CONFIG_PATH:-./config}/searxng:/etc/searxng:rw
+    ports:
+      - "${SEARXNG_PORT:-7082}:8080"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.searxng.entrypoints=web"
+      - "traefik.http.routers.searxng.rule=Host(`search.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+      - "traefik.http.routers.searxng-secure.entrypoints=websecure"
+      - "traefik.http.routers.searxng-secure.rule=Host(`search.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.searxng-secure.tls.certresolver=myresolver"
+    profiles: ["core", "all"]
+
+  # ============================================================================
+  # MONITORING & METRICS
+  # ============================================================================
+  
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/uptime-kuma:/app/data
+    ports:
+      - "${UPTIME_KUMA_PORT:-7001}:3001"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "node", "extra/healthcheck.js"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.uptime.entrypoints=web"
+      - "traefik.http.routers.uptime.rule=Host(`status.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.uptime.loadbalancer.server.port=3001"
+      - "traefik.http.routers.uptime-secure.entrypoints=websecure"
+      - "traefik.http.routers.uptime-secure.rule=Host(`status.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.uptime-secure.tls.certresolver=myresolver"
+    profiles: ["monitoring", "all"]
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USER:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD:-changeme123_influx}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-homelab}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-metrics}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-changeme123_token}
+    volumes:
+      - ${CONFIG_PATH:-./config}/influxdb2:/var/lib/influxdb2
+      - ${CONFIG_PATH:-./config}/influxdb2/config:/etc/influxdb2
+    ports:
+      - "8086:8086"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.influxdb.entrypoints=web"
+      - "traefik.http.routers.influxdb.rule=Host(`influxdb.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.influxdb.loadbalancer.server.port=8086"
+      - "traefik.http.routers.influxdb-secure.entrypoints=websecure"
+      - "traefik.http.routers.influxdb-secure.rule=Host(`influxdb.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.influxdb-secure.tls.certresolver=myresolver"
+    profiles: ["monitoring", "databases", "all"]
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   <<: *restart-policy
+  #   environment:
+  #     <<: *common-variables
+  #     GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+  #     GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-changeme123_grafana}
+  #     GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel
+  #     GF_SERVER_ROOT_URL: http://grafana.${HOMELAB_DOMAIN:-lab}
+  #     GF_ANALYTICS_REPORTING_ENABLED: "false"
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/grafana:/var/lib/grafana
+  #   ports:
+  #     - "${GRAFANA_PORT:-7300}:3000"
+  #   networks:
+  #     - traefik
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+  #     <<: *healthcheck-defaults
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=traefik"
+  #     - "traefik.http.routers.grafana.entrypoints=web"
+  #     - "traefik.http.routers.grafana.rule=Host(`grafana.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+  #     - "traefik.http.routers.grafana-secure.entrypoints=websecure"
+  #     - "traefik.http.routers.grafana-secure.rule=Host(`grafana.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.routers.grafana-secure.tls.certresolver=myresolver"
+  #   profiles: ["monitoring", "all"]
+
+  # telegraf:
+  #   image: telegraf:latest
+  #   container_name: telegraf
+  #   <<: *restart-policy
+  #   environment:
+  #     <<: *common-variables
+  #     HOST_PROC: /host/proc
+  #     HOST_SYS: /host/sys
+  #     HOST_ETC: /host/etc
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - /sys:/host/sys:ro
+  #     - /proc:/host/proc:ro
+  #     - /etc:/host/etc:ro
+  #   networks:
+  #     - internal
+  #   depends_on:
+  #     - influxdb
+  #   profiles: ["monitoring", "all"]
+
+  # ============================================================================
+  # IOT & HOME AUTOMATION
+  # ============================================================================
+  
+  home-assistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: home-assistant
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8123:8123"
+    networks:
+      - traefik
+      - internal
+    privileged: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8123"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.homeassistant.entrypoints=web"
+      - "traefik.http.routers.homeassistant.rule=Host(`home.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+      - "traefik.http.routers.homeassistant-secure.entrypoints=websecure"
+      - "traefik.http.routers.homeassistant-secure.rule=Host(`home.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.homeassistant-secure.tls.certresolver=myresolver"
+    profiles: ["iot", "automation", "all"]
+
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/mosquitto/config:/mosquitto/config
+      - ${CONFIG_PATH:-./config}/mosquitto/data:/mosquitto/data
+      - ${CONFIG_PATH:-./config}/mosquitto/log:/mosquitto/log
+    ports:
+      - "${MOSQUITTO_PORT:-1883}:1883"
+      - "${MOSQUITTO_WS_PORT:-9001}:9001"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      <<: *healthcheck-defaults
+    profiles: ["iot", "automation", "all"]
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      NODE_RED_ENABLE_PROJECTS: "true"
+      NODE_RED_ENABLE_SAFE_MODE: "false"
+    volumes:
+      - ${CONFIG_PATH:-./config}/nodered/data:/data
+    ports:
+      - "${NODERED_PORT:-7180}:1880"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1880"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.nodered.entrypoints=web"
+      - "traefik.http.routers.nodered.rule=Host(`flows.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.nodered.loadbalancer.server.port=1880"
+      - "traefik.http.routers.nodered-secure.entrypoints=websecure"
+      - "traefik.http.routers.nodered-secure.rule=Host(`flows.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.nodered-secure.tls.certresolver=myresolver"
+    profiles: ["iot", "automation", "all"]
+
+  # zigbee2mqtt:
+  #   image: koenkk/zigbee2mqtt:latest
+  #   container_name: zigbee2mqtt
+  #   <<: *restart-policy
+  #   environment:
+  #     <<: *common-variables
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/zigbee2mqtt:/app/data
+  #     - /run/udev:/run/udev:ro
+  #   devices:
+  #     - ${ZIGBEE_ADAPTER:-/dev/ttyUSB0}:/dev/ttyACM0
+  #   ports:
+  #     - "${ZIGBEE2MQTT_PORT:-7800}:8080"
+  #   networks:
+  #     - internal
+  #   depends_on:
+  #     - mosquitto
+  #   profiles: ["iot", "all"]
+
+  esphome:
+    image: ghcr.io/esphome/esphome:latest
+    container_name: esphome
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/esphome:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "${ESPHOME_PORT:-7605}:6052"
+    networks:
+      - traefik
+      - internal
+    privileged: true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.esphome.entrypoints=web"
+      - "traefik.http.routers.esphome.rule=Host(`esphome.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.esphome.loadbalancer.server.port=6052"
+      - "traefik.http.routers.esphome-secure.entrypoints=websecure"
+      - "traefik.http.routers.esphome-secure.rule=Host(`esphome.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.esphome-secure.tls.certresolver=myresolver"
+    profiles: ["iot", "all"]
+
+  mqtt-explorer:
+    image: smeagolworms4/mqtt-explorer:latest
+    container_name: mqtt-explorer
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    ports:
+      - "${MQTT_EXPLORER_PORT:-7400}:4000"
+    networks:
+      - traefik
+      - internal
+    depends_on:
+      - mosquitto
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.mqtt-explorer.entrypoints=web"
+      - "traefik.http.routers.mqtt-explorer.rule=Host(`mqtt.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.mqtt-explorer.loadbalancer.server.port=4000"
+      - "traefik.http.routers.mqtt-explorer-secure.entrypoints=websecure"
+      - "traefik.http.routers.mqtt-explorer-secure.rule=Host(`mqtt.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.mqtt-explorer-secure.tls.certresolver=myresolver"
+    profiles: ["iot", "all"]
+
+  # ============================================================================
+  # ROBOTICS & DEVELOPMENT
+  # ============================================================================
+  
+  ros-core:
+    image: ros:noetic-ros-core
+    container_name: ros-core
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      ROS_MASTER_URI: http://ros-core:11311
+      ROS_HOSTNAME: ros-core
+    command: roscore
+    ports:
+      - "${ROS_PORT:-11311}:11311"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "rostopic list || exit 1"]
+      <<: *healthcheck-defaults
+    profiles: ["robotics", "development", "all"]
+
+  rosbridge:
+    image: ros:noetic-ros-base
+    container_name: rosbridge
+    <<: *restart-policy
+    command: >
+      bash -c "apt-get update && 
+               apt-get install -y ros-noetic-rosbridge-server && 
+               source /opt/ros/noetic/setup.bash && 
+               roslaunch rosbridge_server rosbridge_websocket.launch"
+    environment:
+      <<: *common-variables
+      ROS_MASTER_URI: http://ros-core:11311
+      ROS_HOSTNAME: rosbridge
+    ports:
+      - "${ROSBRIDGE_PORT:-7909}:9090"
+    networks:
+      - traefik
+      - internal
+    depends_on:
+      - ros-core
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.rosbridge.entrypoints=web"
+      - "traefik.http.routers.rosbridge.rule=Host(`ros.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.rosbridge.loadbalancer.server.port=9090"
+      - "traefik.http.routers.rosbridge-secure.entrypoints=websecure"
+      - "traefik.http.routers.rosbridge-secure.rule=Host(`ros.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.rosbridge-secure.tls.certresolver=myresolver"
+    profiles: ["robotics", "all"]
+
+  # jupyter:
+  #   image: jupyter/datascience-notebook:latest
+  #   container_name: jupyter
+  #   <<: *restart-policy
+  #   user: root
+  #   environment:
+  #     <<: *common-variables
+  #     JUPYTER_TOKEN: ${JUPYTER_TOKEN:-changeme123_jupyter}
+  #     JUPYTER_ENABLE_LAB: "yes"
+  #     GRANT_SUDO: "yes"
+  #     CHOWN_HOME: "yes"
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/jupyter:/home/jovyan/work
+  #     - ${CONFIG_PATH:-./config}/ros:/home/jovyan/ros_ws
+  #   ports:
+  #     - "${JUPYTER_PORT:-7888}:8888"
+  #   networks:
+  #     - traefik
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8888"]
+  #     <<: *healthcheck-defaults
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=traefik"
+  #     - "traefik.http.routers.jupyter.entrypoints=web"
+  #     - "traefik.http.routers.jupyter.rule=Host(`notebook.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.services.jupyter.loadbalancer.server.port=8888"
+  #     - "traefik.http.routers.jupyter-secure.entrypoints=websecure"
+  #     - "traefik.http.routers.jupyter-secure.rule=Host(`notebook.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.routers.jupyter-secure.tls.certresolver=myresolver"
+  #   profiles: ["development", "robotics", "all"]
+
+  # code-server:
+  #   image: lscr.io/linuxserver/code-server:latest
+  #   container_name: code-server
+  #   <<: *restart-policy
+  #   environment:
+  #     <<: *common-variables
+  #     PASSWORD: ${CODE_SERVER_PASSWORD:-changeme123_code}
+  #     SUDO_PASSWORD: ${CODE_SERVER_PASSWORD:-changeme123_code}
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/code-server:/config
+  #     - ${CONFIG_PATH:-./config}/ros:/config/workspace/ros_ws
+  #     - ${CONFIG_PATH:-./config}/jupyter:/config/workspace/notebooks
+  #   ports:
+  #     - "${CODE_SERVER_PORT:-7808}:8443"
+  #   networks:
+  #     - traefik
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8443"]
+  #     <<: *healthcheck-defaults
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=traefik"
+  #     - "traefik.http.routers.code.entrypoints=web"
+  #     - "traefik.http.routers.code.rule=Host(`code.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.services.code.loadbalancer.server.port=8443"
+  #     - "traefik.http.routers.code-secure.entrypoints=websecure"
+  #     - "traefik.http.routers.code-secure.rule=Host(`code.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.routers.code-secure.tls.certresolver=myresolver"
+  #   profiles: ["development", "all"]
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    command: >
+      mlflow server 
+      --host 0.0.0.0 
+      --port 5000 
+      --backend-store-uri sqlite:////mlflow/mlflow.db 
+      --default-artifact-root /mlflow/artifacts
+    volumes:
+      - ${CONFIG_PATH:-./config}/mlflow:/mlflow
+    ports:
+      - "${MLFLOW_PORT:-7500}:5000"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.mlflow.entrypoints=web"
+      - "traefik.http.routers.mlflow.rule=Host(`ml.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.mlflow.loadbalancer.server.port=5000"
+      - "traefik.http.routers.mlflow-secure.entrypoints=websecure"
+      - "traefik.http.routers.mlflow-secure.rule=Host(`ml.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.mlflow-secure.tls.certresolver=myresolver"
+    profiles: ["ml", "development", "all"]
+
+  opencv:
+  #   image: jjanzic/docker-python3-opencv:latest
+  #   container_name: opencv
+  #   <<: *restart-policy
+  #   environment:
+  #     <<: *common-variables
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/opencv:/app
+  #   ports:
+  #     - "${OPENCV_PORT:-7501}:5000"
+  #   networks:
+  #     - internal
+  #   profiles: ["cv", "development", "all"]
+
+  # ============================================================================
+  # PRODUCTIVITY & TOOLS
+  # ============================================================================
+  
+  karakeep-web:
+    image: ghcr.io/karakeep-app/karakeep:${KARAKEEP_VERSION:-release}
+    container_name: karakeep-web
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      MEILI_ADDR: http://karakeep-meilisearch:7700
+      BROWSER_WEB_URL: http://karakeep-chrome:9222
+      DATA_DIR: /data
+    volumes:
+      - ${CONFIG_PATH:-./config}/karakeep/data:/data
+    ports:
+      - "${KARAKEEP_PORT:-7301}:3000"
+    networks:
+      - traefik
+      - internal
+    depends_on:
+      - karakeep-meilisearch
+      - karakeep-chrome
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.karakeep.entrypoints=web"
+      - "traefik.http.routers.karakeep.rule=Host(`bookmarks.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.karakeep.loadbalancer.server.port=3000"
+      - "traefik.http.routers.karakeep-secure.entrypoints=websecure"
+      - "traefik.http.routers.karakeep-secure.rule=Host(`bookmarks.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.karakeep-secure.tls.certresolver=myresolver"
+    profiles: ["productivity", "karakeep", "all"]
+    
+  karakeep-chrome:
+    image: gcr.io/zenika-hub/alpine-chrome:124
+    container_name: karakeep-chrome
+    <<: *restart-policy
+    networks:
+      - internal
+    command:
+      - --no-sandbox
+      - --disable-gpu
+      - --disable-dev-shm-usage
+      - --remote-debugging-address=0.0.0.0
+      - --remote-debugging-port=9222
+      - --hide-scrollbars
+    profiles: ["productivity", "karakeep", "all"]
+
+  karakeep-meilisearch:
+    image: getmeili/meilisearch:v1.13.3
+    container_name: karakeep-meilisearch
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      MEILI_NO_ANALYTICS: ${MEILI_NO_ANALYTICS:-true}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme123_meili}
+    volumes:
+      - ${CONFIG_PATH:-./config}/karakeep/meilisearch:/meili_data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      <<: *healthcheck-defaults
+    profiles: ["productivity", "karakeep", "all"]
+
+  # outline:
+  #   image: outlinewiki/outline:latest
+  #   container_name: outline
+  #   <<: *restart-policy
+  #   environment:
+  #     <<: *common-variables
+  #     DATABASE_URL: postgresql://${POSTGRES_USER:-homelab_user}:${POSTGRES_PASSWORD:-changeme123_postgres}@postgres:5432/outline
+  #     DATABASE_URL_TEST: postgresql://${POSTGRES_USER:-homelab_user}:${POSTGRES_PASSWORD:-changeme123_postgres}@postgres:5432/outline_test
+  #     REDIS_URL: redis://:${REDIS_PASSWORD:-changeme123_redis}@redis:6379
+  #     SECRET_KEY: ${OUTLINE_SECRET_KEY:-changeme123_outline_secret}
+  #     UTILS_SECRET: ${OUTLINE_UTILS_SECRET:-changeme123_outline_utils}
+  #     URL: http://docs.${HOMELAB_DOMAIN:-lab}
+  #     PORT: 3000
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/outline/data:/var/lib/outline/data
+  #     - ${CONFIG_PATH:-./config}/outline/uploads:/var/lib/outline/uploads
+  #   ports:
+  #     - "${OUTLINE_PORT:-7305}:3000"
+  #   networks:
+  #     - traefik
+  #     - internal
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3000"]
+  #     <<: *healthcheck-defaults
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=traefik"
+  #     - "traefik.http.routers.outline.entrypoints=web"
+  #     - "traefik.http.routers.outline.rule=Host(`docs.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.services.outline.loadbalancer.server.port=3000"
+  #     - "traefik.http.routers.outline-secure.entrypoints=websecure"
+  #     - "traefik.http.routers.outline-secure.rule=Host(`docs.${HOMELAB_DOMAIN:-lab}`)"
+  #     - "traefik.http.routers.outline-secure.tls.certresolver=myresolver"
+  #   profiles: ["productivity", "all"]
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/filebrowser/database.db:/database.db
+      - ${CONFIG_PATH:-./config}/filebrowser/filebrowser.json:/.filebrowser.json
+      - ${MEDIA_PATH:-./media}:/srv
+    ports:
+      - "${FILEBROWSER_PORT:-7805}:80"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.filebrowser.entrypoints=web"
+      - "traefik.http.routers.filebrowser.rule=Host(`files.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.filebrowser.loadbalancer.server.port=80"
+      - "traefik.http.routers.filebrowser-secure.entrypoints=websecure"
+      - "traefik.http.routers.filebrowser-secure.rule=Host(`files.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.filebrowser-secure.tls.certresolver=myresolver"
+    profiles: ["files", "productivity", "all"]
+
+  # ============================================================================
+  # AUTOMATION & WORKFLOW
+  # ============================================================================
+  
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-changeme123_n8n}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-homelab_user}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-changeme123_postgres}
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+      N8N_PORT: 5678
+      WEBHOOK_URL: http://n8n.${HOMELAB_DOMAIN:-lab}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true" 
+    volumes:
+      - ${CONFIG_PATH:-./config}/n8n/data:/home/node/.n8n
+    ports:
+      - "${N8N_PORT:-7067}:5678"
+    networks:
+      - traefik
+      - internal
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5678/healthz"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.n8n.entrypoints=web"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      - "traefik.http.routers.n8n-secure.entrypoints=websecure"
+      - "traefik.http.routers.n8n-secure.rule=Host(`n8n.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.n8n-secure.tls.certresolver=myresolver"
+    profiles: ["automation", "workflow", "all"]
+
+  # ============================================================================
+  # DATABASES & CACHE
+  # ============================================================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      POSTGRES_DB: ${POSTGRES_DB:-homelab}
+      POSTGRES_USER: ${POSTGRES_USER:-homelab_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123_postgres}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - ${CONFIG_PATH:-./config}/postgres/data:/var/lib/postgresql/data
+      - ${BACKUP_PATH:-./backups}/postgres:/backups
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+      - ./scripts/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro  # Add this line
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-homelab_user} -d ${POSTGRES_DB:-homelab}"]
+      <<: *healthcheck-defaults
+    command: >
+      postgres
+      -c hba_file=/etc/postgresql/pg_hba.conf
+      -c listen_addresses='*'
+    profiles: ["databases", "all"]
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    <<: *restart-policy
+    command: >
+      redis-server 
+      --appendonly yes 
+      --requirepass ${REDIS_PASSWORD:-changeme123_redis}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - ${CONFIG_PATH:-./config}/redis/data:/data
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      <<: *healthcheck-defaults
+    profiles: ["databases", "all"]
+
+  # timescaledb:
+  #   image: timescale/timescaledb:latest-pg15
+  #   container_name: timescaledb
+  #   <<: *restart-policy
+  #   environment:
+  #     <<: *common-variables
+  #     POSTGRES_DB: ${TIMESCALEDB_DB:-iot_data}
+  #     POSTGRES_USER: ${TIMESCALEDB_USER:-timescale}
+  #     POSTGRES_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme123_timescale}
+  #   volumes:
+  #     - ${CONFIG_PATH:-./config}/timescaledb/data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5434:5432"
+  #   networks:
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${TIMESCALEDB_USER:-timescale} -d ${TIMESCALEDB_DB:-iot_data}"]
+  #     <<: *healthcheck-defaults
+  #   profiles: ["iot", "databases", "all"]
+
+  # ============================================================================
+  # FILE SYNCHRONIZATION
+  # ============================================================================
+  
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: syncthing
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/syncthing:/config
+      - ${MEDIA_PATH:-./media}:/media
+    ports:
+      - "${SYNCTHING_PORT:-8384}:8384"
+      - "${SYNCTHING_TRANSFER_PORT:-22000}:22000/tcp"
+      - "${SYNCTHING_TRANSFER_PORT:-22000}:22000/udp"
+      - "${SYNCTHING_DISCOVERY_PORT:-21027}:21027/udp"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8384"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.syncthing.entrypoints=web"
+      - "traefik.http.routers.syncthing.rule=Host(`sync.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.syncthing.loadbalancer.server.port=8384"
+      - "traefik.http.routers.syncthing-secure.entrypoints=websecure"
+      - "traefik.http.routers.syncthing-secure.rule=Host(`sync.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.syncthing-secure.tls.certresolver=myresolver"
+    profiles: ["files", "backup", "all"]
+
+  # ============================================================================
+  # VPN - WIREGUARD
+  # ============================================================================
+  
+  wireguard:
+    image: ghcr.io/wg-easy/wg-easy:latest
+    container_name: wireguard
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      WG_HOST: ${HOMELAB_SERVER_IP:-192.168.100.151}
+      WG_PORT: ${WG_PORT:-51820}
+      PASSWORD_HASH: $${WG_UI_PASSWORD_HASH:-$$2a$$10$$X5w7s8t9u0v1w2x3y4z5AeBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefgh}
+      WG_DEFAULT_ADDRESS: ${WG_DEFAULT_ADDRESS:-10.8.0.x}
+      WG_DEFAULT_DNS: ${WG_DEFAULT_DNS:-1.1.1.1}
+      WG_MTU: ${WG_MTU:-1420}
+      WG_ALLOWED_IPS: ${WG_ALLOWED_IPS:-0.0.0.0/0}
+      WG_PERSISTENT_KEEPALIVE: 25
+    volumes:
+      - ${CONFIG_PATH:-./config}/wireguard:/etc/wireguard
+    ports:
+      - "${WG_PORT:-51820}:51820/udp"
+      - "${WG_UI_PORT:-7518}:51821/tcp"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    networks:
+      - traefik
+    healthcheck:
+      test: ["CMD", "test", "-f", "/etc/wireguard/wg0.conf"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.wireguard.entrypoints=web"
+      - "traefik.http.routers.wireguard.rule=Host(`vpn.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.wireguard.loadbalancer.server.port=51821"
+      - "traefik.http.routers.wireguard-secure.entrypoints=websecure"
+      - "traefik.http.routers.wireguard-secure.rule=Host(`vpn.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.wireguard-secure.tls.certresolver=myresolver"
+    profiles: ["networking", "all"]
+
+  # ============================================================================
+  # MEDIA STACK
+  # ============================================================================
+  
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/jellyfin/config:/config
+      - ${MEDIA_PATH:-./media}/movies:/data/movies
+      - ${MEDIA_PATH:-./media}/tv:/data/tvshows
+      - ${MEDIA_PATH:-./media}/music:/data/music
+      - ${MEDIA_PATH:-./media}/photos:/data/photos
+    ports:
+      - "${JELLYFIN_PORT:-7096}:8096"
+      - "8920:8920"
+      - "7359:7359/udp"
+      - "1900:1900/udp"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.jellyfin.entrypoints=web"
+      - "traefik.http.routers.jellyfin.rule=Host(`media.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+      - "traefik.http.routers.jellyfin-secure.entrypoints=websecure"
+      - "traefik.http.routers.jellyfin-secure.rule=Host(`media.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.jellyfin-secure.tls.certresolver=myresolver"
+    profiles: ["media", "all"]
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/sonarr:/config
+      - ${MEDIA_PATH:-./media}/tv:/tv
+      - ${MEDIA_PATH:-./media}/downloads:/downloads
+    ports:
+      - "8989:8989"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.sonarr.entrypoints=web"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+      - "traefik.http.routers.sonarr-secure.entrypoints=websecure"
+      - "traefik.http.routers.sonarr-secure.rule=Host(`sonarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.sonarr-secure.tls.certresolver=myresolver"
+    profiles: ["media", "all"]
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/radarr:/config
+      - ${MEDIA_PATH:-./media}/movies:/movies
+      - ${MEDIA_PATH:-./media}/downloads:/downloads
+    ports:
+      - "7878:7878"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7878/ping"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.radarr.entrypoints=web"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+      - "traefik.http.routers.radarr-secure.entrypoints=websecure"
+      - "traefik.http.routers.radarr-secure.rule=Host(`radarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.radarr-secure.tls.certresolver=myresolver"
+    profiles: ["media", "all"]
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/prowlarr:/config
+    ports:
+      - "9696:9696"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9696/ping"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.prowlarr.entrypoints=web"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+      - "traefik.http.routers.prowlarr-secure.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr-secure.rule=Host(`prowlarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.prowlarr-secure.tls.certresolver=myresolver"
+    profiles: ["media", "all"]
+
+  ombi:
+    image: lscr.io/linuxserver/ombi:latest
+    container_name: ombi
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      BASE_URL: /
+    volumes:
+      - ${CONFIG_PATH:-./config}/ombi:/config
+    ports:
+      - "3579:3579"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3579"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.ombi.entrypoints=web"
+      - "traefik.http.routers.ombi.rule=Host(`requests.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.ombi.loadbalancer.server.port=3579"
+      - "traefik.http.routers.ombi-secure.entrypoints=websecure"
+      - "traefik.http.routers.ombi-secure.rule=Host(`requests.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.ombi-secure.tls.certresolver=myresolver"
+    profiles: ["media", "all"]
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      WEBUI_PORT: 8080
+    volumes:
+      - ${CONFIG_PATH:-./config}/qbittorrent:/config
+      - ${MEDIA_PATH:-./media}/downloads:/downloads
+    ports:
+      - "8083:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.qbittorrent.entrypoints=web"
+      - "traefik.http.routers.qbittorrent.rule=Host(`torrent.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
+      - "traefik.http.routers.qbittorrent-secure.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent-secure.rule=Host(`torrent.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.qbittorrent-secure.tls.certresolver=myresolver"
+    profiles: ["media", "all"]
+
+  # ============================================================================
+  # MUSIC SERVICES
+  # ============================================================================
+  
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+    volumes:
+      - ${CONFIG_PATH:-./config}/lidarr:/config
+      - ${MEDIA_PATH:-./media}/music:/music
+      - ${MEDIA_PATH:-./media}/downloads:/downloads
+    ports:
+      - "8686:8686"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8686/ping"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.lidarr.entrypoints=web"
+      - "traefik.http.routers.lidarr.rule=Host(`lidarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
+      - "traefik.http.routers.lidarr-secure.entrypoints=websecure"
+      - "traefik.http.routers.lidarr-secure.rule=Host(`lidarr.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.lidarr-secure.tls.certresolver=myresolver"
+    profiles: ["music", "all"]
+
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      ND_SCANSCHEDULE: ${NAVIDROME_SCANNING_INTERVAL:-1h}
+      ND_LOGLEVEL: info
+      ND_SESSIONTIMEOUT: 24h
+      ND_BASEURL: ""
+      ND_TRANSCODINGCACHESIZE: ${NAVIDROME_TRANSCODING_CACHE_SIZE:-100MB}
+      ND_ENABLETRANSCODINGCONFIG: "true"
+    volumes:
+      - ${CONFIG_PATH:-./config}/navidrome/data:/data
+      - ${MEDIA_PATH:-./media}/music:/music:ro
+    ports:
+      - "${NAVIDROME_PORT:-7453}:4533"
+    networks:
+      - traefik
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4533/ping"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.navidrome.entrypoints=web"
+      - "traefik.http.routers.navidrome.rule=Host(`music.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.navidrome.loadbalancer.server.port=4533"
+      - "traefik.http.routers.navidrome-secure.entrypoints=websecure"
+      - "traefik.http.routers.navidrome-secure.rule=Host(`music.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.navidrome-secure.tls.certresolver=myresolver"
+    profiles: ["music", "all"]
+
+  # ============================================================================
+  # NETWORKING - PIHOLE
+  # ============================================================================
+  
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    <<: *restart-policy
+    environment:
+      <<: *common-variables
+      WEBPASSWORD: ${PIHOLE_PASSWORD:-changeme123_pihole}
+      PIHOLE_DNS_: ${DNS_PRIMARY:-1.1.1.1};${DNS_SECONDARY:-1.0.0.1}
+      DNSMASQ_LISTENING: all
+      WEBTHEME: default-dark
+    volumes:
+      - ${CONFIG_PATH:-./config}/pihole/etc-pihole:/etc/pihole
+      - ${CONFIG_PATH:-./config}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8084:80/tcp"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - traefik
+    dns:
+      - 127.0.0.1
+      - 1.1.1.1
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=1", "+tries=1", "@127.0.0.1", "pi.hole"]
+      <<: *healthcheck-defaults
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.pihole.entrypoints=web"
+      - "traefik.http.routers.pihole.rule=Host(`pihole.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.services.pihole.loadbalancer.server.port=80"
+      - "traefik.http.routers.pihole-secure.entrypoints=websecure"
+      - "traefik.http.routers.pihole-secure.rule=Host(`pihole.${HOMELAB_DOMAIN:-lab}`)"
+      - "traefik.http.routers.pihole-secure.tls.certresolver=myresolver"
+    profiles: ["networking", "all"]
+
